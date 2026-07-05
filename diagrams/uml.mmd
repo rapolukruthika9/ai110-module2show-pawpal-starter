@@ -14,14 +14,23 @@ classDiagram
         +int age
     }
 
+    class Priority {
+        <<enumeration>>
+        LOW
+        MEDIUM
+        HIGH
+    }
+
     class Task {
         +str title
         +int duration_minutes
-        +str priority
+        +Priority priority
         +str pet_name
-        +str preferred_time
+        +int preferred_time
         +bool is_recurring
         +str frequency
+        +int day_of_week
+        +end_time() int
         +conflicts_with(other) bool
         +is_high_priority() bool
     }
@@ -39,4 +48,5 @@ classDiagram
     Owner "1" --> "many" Pet : has
     Owner "1" --> "1" Scheduler : uses
     Scheduler "1" --> "many" Task : manages
-    Task "many" --> "1" Pet : assigned to
+    Task "many" --> "1" Pet : assigned to (by pet_name, validated on add_task)
+    Task ..> Priority : uses

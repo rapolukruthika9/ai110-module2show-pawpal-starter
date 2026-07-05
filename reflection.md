@@ -13,8 +13,7 @@ The three core actions I identified were: adding a pet, adding/scheduling a care
 
 **b. Design changes**
 
-- Did your design change during implementation?
-- If yes, describe at least one change and why you made it.
+Yes. I switched `Task.priority` from a free-form string to a `Priority` IntEnum and `preferred_time` from an `"HH:MM"` string to an integer count of minutes since midnight, because both were being parsed and compared repeatedly — the enum makes tasks sort directly and the integer makes conflict/overlap checks simple arithmetic instead of string parsing. I also added a `day_of_week` field to anchor weekly recurrence (the original design had no way to say *which* day a weekly task lands on) and moved pet-name validation into `Scheduler.add_task` so a task can't silently reference a pet the owner doesn't have.
 
 ---
 
