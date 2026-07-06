@@ -47,24 +47,33 @@ pip install -r requirements.txt
 ```
 Owner: Jordan (2 pets, 5 tasks)
 
-Conflicts detected:
-  'Morning walk' overlaps 'Feeding'
+All tasks sorted by time (sort_by_time)
+---------------------------------------
+  08:00  Morning walk         (30 min, HIGH, Biscuit) [pending] due 2026-07-06
+  08:00  Feeding              (10 min, HIGH, Biscuit) [pending]
+  09:00  Litter box cleaning  (10 min, MEDIUM, Whiskers) [pending]
+  14:00  Vet checkup          (45 min, HIGH, Whiskers) [pending]
+  18:00  Playtime             (15 min, LOW, Biscuit) [pending]
 
-All tasks (priority order)
---------------------------
-  08:00  Morning walk         (30 min, HIGH priority, Biscuit) [pending]
-  08:15  Feeding              (10 min, HIGH priority, Biscuit) [pending]
-  14:00  Vet checkup          (45 min, HIGH priority, Whiskers) [pending]
-  09:00  Litter box cleaning  (10 min, MEDIUM priority, Whiskers) [pending]
-  18:00  Playtime             (15 min, LOW priority, Biscuit) [pending]
+Tasks for Biscuit only (filter_tasks)
+-------------------------------------
+  18:00  Playtime             (15 min, LOW, Biscuit) [pending]
+  08:00  Morning walk         (30 min, HIGH, Biscuit) [pending] due 2026-07-06
+  08:00  Feeding              (10 min, HIGH, Biscuit) [pending]
+
+Conflict warnings
+------------------
+  Warning: 'Morning walk' (Biscuit) overlaps with 'Feeding' (Biscuit)
+
+Marked 'Morning walk' complete (was due 2026-07-06).
+Next occurrence auto-created: due 2026-07-07, is_complete=False
+Owner now has 6 tasks (was 5, now includes the new occurrence).
 
 Today's Schedule (fits in 90 minutes)
 -------------------------------------
-  08:00  Morning walk         (30 min, HIGH priority, Biscuit) [pending]
-  14:00  Vet checkup          (45 min, HIGH priority, Whiskers) [pending]
-  09:00  Litter box cleaning  (10 min, MEDIUM priority, Whiskers) [pending]
-
-Marked 'Morning walk' complete: True
+  08:00  Morning walk         (30 min, HIGH, Biscuit) [done] due 2026-07-06
+  14:00  Vet checkup          (45 min, HIGH, Whiskers) [pending]
+  09:00  Litter box cleaning  (10 min, MEDIUM, Whiskers) [pending]
 ```
 
 ## 🧪 Testing PawPal+
@@ -90,14 +99,12 @@ tests/test_pawpal.py::test_adding_task_increases_pet_task_count PASSED   [100%]
 
 ## 📐 Smarter Scheduling
 
-> Fill in once you've implemented scheduling logic.
-
 | Feature | Method(s) | Notes |
 |---------|-----------|-------|
-| Task sorting | | e.g., by priority, duration |
-| Filtering | | e.g., skip tasks if time runs out |
-| Conflict handling | | e.g., overlapping time slots |
-| Recurring tasks | | e.g., daily vs. weekly |
+| Task sorting | `Scheduler.sort_by_time()`, `Scheduler.sort_tasks()` | `sort_by_time()` is pure chronological order; `sort_tasks()` sorts by priority first, then time. Unscheduled tasks sort to the end. |
+| Filtering | `Scheduler.filter_tasks(pet_name=..., is_complete=...)` | Either filter is optional; can filter by pet, by completion status, or both at once. |
+| Conflict handling | `Scheduler.detect_conflicts()`, `Scheduler.get_conflict_warnings()` | `detect_conflicts()` returns raw overlapping task pairs; `get_conflict_warnings()` wraps that into human-readable warning strings so the UI/CLI can display a warning instead of crashing. |
+| Recurring tasks | `Task.next_occurrence_date()`, `Scheduler.mark_task_complete()` | Marking a recurring task complete via `mark_task_complete()` automatically creates the next occurrence (`due_date + timedelta(days=1)` for daily, `+7` for weekly) and adds it to the schedule. |
 
 ## 📸 Demo Walkthrough
 

@@ -23,13 +23,11 @@ Yes. I switched `Task.priority` from a free-form string to a `Priority` IntEnum 
 
 **a. Constraints and priorities**
 
-- What constraints does your scheduler consider (for example: time, priority, preferences)?
-- How did you decide which constraints mattered most?
+The scheduler considers three things: available time (`build_daily_schedule`'s `available_minutes` budget), priority (`sort_tasks` puts HIGH-priority tasks first), and time-window conflicts (`detect_conflicts`/`conflicts_with` prevent two overlapping tasks from both landing in the same schedule). I decided time and priority mattered most because those map directly to what a real pet owner cares about first: "can I actually fit this in today" and "what absolutely has to happen." Preferences (like a pet's favorite time of day) weren't built in yet — that's a reasonable next step but wasn't essential for a working v1.
 
 **b. Tradeoffs**
 
-- Describe one tradeoff your scheduler makes.
-- Why is that tradeoff reasonable for this scenario?
+One clear tradeoff: `conflicts_with()` only checks for overlapping time *windows* (start/end minute ranges), not softer scheduling preferences like "don't do two high-energy activities back to back" or minimum gaps between tasks. That's reasonable for this scenario because exact time overlap is an unambiguous, checkable fact (two things literally can't happen at once), while "should there be a buffer between tasks" is a judgment call that varies by owner and pet — building that in now would mean guessing at a rule instead of letting the actual user express a preference later.
 
 ---
 

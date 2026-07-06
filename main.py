@@ -1,30 +1,37 @@
 """
 CLI demo for PawPal+.
 
-Creates an owner with two pets, adds several tasks with different times and
-priorities, then prints today's prioritized schedule. This is the
-verification step before wiring anything into the Streamlit UI.
+Phase 4: tasks are added out of order on purpose to prove sort_by_time()
+actually sorts, two tasks are scheduled at the same time to prove conflict
+warnings fire without crashing, and a recurring task is marked complete to
+prove the next occurrence gets created automatically.
 """
+
+from datetime import date
 
 from pawpal_system import Owner, Pet, Priority, Scheduler, Task, minutes_since_midnight
 
 
-def print_schedule(title: str, tasks: list[Task]) -> None:
+def format_time(minutes: int | None) -> str:
+    if minutes is None:
+        return "unscheduled"
+    hours, mins = divmod(minutes, 60)
+    return f"{hours:02d}:{mins:02d}"
+
+
+def print_tasks(title: str, tasks: list[Task]) -> None:
     print(f"\n{title}")
     print("-" * len(title))
     if not tasks:
         print("  (no tasks)")
         return
     for task in tasks:
-        time_str = "unscheduled"
-        if task.preferred_time is not None:
-            hours, mins = divmod(task.preferred_time, 60)
-            time_str = f"{hours:02d}:{mins:02d}"
         status = "done" if task.is_complete else "pending"
+        due = f" due {task.due_date}" if task.due_date else ""
         print(
-            f"  {time_str}  {task.title:<20} "
-            f"({task.duration_minutes} min, {task.priority.name} priority, "
-            f"{task.pet_name}) [{status}]"
+            f"  {format_time(task.preferred_time)}  {task.title:<20} "
+            f"({task.duration_minutes} min, {task.priority.name}, {task.pet_name}) "
+            f"[{status}]{due}"
         )
 
 
@@ -37,27 +44,26 @@ def main() -> None:
     owner.add_pet(biscuit)
     owner.add_pet(whiskers)
 
+    today = date.today()
+
+    # Added deliberately out of chronological order to prove sort_by_time() works.
     tasks = [
+        Task(
+            title="Playtime",
+            duration_minutes=15,
+            priority=Priority.LOW,
+            pet_name="Biscuit",
+            preferred_time=minutes_since_midnight("18:00"),
+        ),
         Task(
             title="Morning walk",
             duration_minutes=30,
             priority=Priority.HIGH,
             pet_name="Biscuit",
             preferred_time=minutes_since_midnight("08:00"),
-        ),
-        Task(
-            title="Feeding",
-            duration_minutes=10,
-            priority=Priority.HIGH,
-            pet_name="Biscuit",
-            preferred_time=minutes_since_midnight("08:15"),  # overlaps the walk on purpose
-        ),
-        Task(
-            title="Litter box cleaning",
-            duration_minutes=10,
-            priority=Priority.MEDIUM,
-            pet_name="Whiskers",
-            preferred_time=minutes_since_midnight("09:00"),
+            is_recurring=True,
+            frequency="daily",
+            due_date=today,
         ),
         Task(
             title="Vet checkup",
@@ -67,11 +73,18 @@ def main() -> None:
             preferred_time=minutes_since_midnight("14:00"),
         ),
         Task(
-            title="Playtime",
-            duration_minutes=15,
-            priority=Priority.LOW,
+            title="Feeding",
+            duration_minutes=10,
+            priority=Priority.HIGH,
             pet_name="Biscuit",
-            preferred_time=minutes_since_midnight("18:00"),
+            preferred_time=minutes_since_midnight("08:00"),  # same time as the walk, on purpose
+        ),
+        Task(
+            title="Litter box cleaning",
+            duration_minutes=10,
+            priority=Priority.MEDIUM,
+            pet_name="Whiskers",
+            preferred_time=minutes_since_midnight("09:00"),
         ),
     ]
     for task in tasks:
@@ -79,18 +92,37 @@ def main() -> None:
 
     print(f"Owner: {owner.name} ({len(owner.pets)} pets, {len(owner.get_all_tasks())} tasks)")
 
-    conflicts = scheduler.detect_conflicts()
-    if conflicts:
-        print("\nConflicts detected:")
-        for a, b in conflicts:
-            print(f"  '{a.title}' overlaps '{b.title}'")
+    # --- Sorting ---
+    print_tasks("All tasks sorted by time (sort_by_time)", scheduler.sort_by_time())
+    print_tasks("All tasks sorted by priority (sort_tasks)", scheduler.sort_tasks())
 
-    print_schedule("All tasks (priority order)", scheduler.sort_tasks())
-    print_schedule("Today's Schedule (fits in 90 minutes)", scheduler.build_daily_schedule(90))
+    # --- Filtering ---
+    print_tasks("Tasks for Biscuit only (filter_tasks)", scheduler.filter_tasks(pet_name="Biscuit"))
+    print_tasks(
+        "Incomplete tasks only (filter_tasks)",
+        scheduler.filter_tasks(is_complete=False),
+    )
 
-    # demonstrate mark_complete
-    tasks[0].mark_complete()
-    print(f"\nMarked '{tasks[0].title}' complete: {tasks[0].is_complete}")
+    # --- Conflict detection (lightweight warnings, no crash) ---
+    warnings = scheduler.get_conflict_warnings()
+    print("\nConflict warnings")
+    print("------------------")
+    if warnings:
+        for w in warnings:
+            print(f"  {w}")
+    else:
+        print("  (none)")
+
+    # --- Recurring task auto-continuation ---
+    morning_walk = tasks[1]
+    follow_up = scheduler.mark_task_complete(morning_walk)
+    print(f"\nMarked '{morning_walk.title}' complete (was due {morning_walk.due_date}).")
+    if follow_up:
+        print(f"Next occurrence auto-created: due {follow_up.due_date}, is_complete={follow_up.is_complete}")
+    print(f"Owner now has {len(owner.get_all_tasks())} tasks (was 5, now includes the new occurrence).")
+
+    # --- Final schedule ---
+    print_tasks("Today's Schedule (fits in 90 minutes)", scheduler.build_daily_schedule(90))
 
 
 if __name__ == "__main__":
