@@ -4,18 +4,16 @@
 
 **a. Initial design**
 
-The three core actions I identified were: adding a pet, adding/scheduling a care task for a pet, and viewing a prioritized daily schedule. Based on those, I designed four classes:
+I picked three things a user should be able to do: add a pet, add a task for a pet, and see a schedule for the day. To make that work, I made four classes:
 
-1. Owner - holds the pet owner's basic info (name, email) and their list of Pet objects. Responsible for adding pets and looking one up by name.
-2. Pet - a simple data container for a single pet's info (name, species, breed, age). No behavior of its own; it's referenced by Task and owned by Owner.
-3. Task - represents one care task (title, duration, priority, which pet it's for, preferred time, and recurrence info). Responsible for knowing whether it conflicts with another task and whether it's high priority.
-4. Scheduler - owns the list of Tasks for an Owner and is responsible for all the "smart" behavior: adding tasks, sorting by priority, detecting time conflicts, expanding recurring tasks, and building an actual daily schedule that fits within available time.
+1. **Owner** - stores the person's name and email, and their list of pets.
+2. **Pet** - stores basic info like name, species, breed, and age.
+3. **Task** - one thing to do, like a walk or a vet visit. Knows its time, priority, and which pet it's for.
+4. **Scheduler** - the part that does the actual work: sorting tasks, checking for time conflicts, and building the day's schedule.
 
 **b. Design changes**
 
-Yes. I switched `Task.priority` from a free-form string to a `Priority` IntEnum and `preferred_time` from an `"HH:MM"` string to an integer count of minutes since midnight, because both were being parsed and compared repeatedly — the enum makes tasks sort directly and the integer makes conflict/overlap checks simple arithmetic instead of string parsing. I also added a `day_of_week` field to anchor weekly recurrence (the original design had no way to say *which* day a weekly task lands on) and moved pet-name validation into `Scheduler.add_task` so a task can't silently reference a pet the owner doesn't have.
-
-**Phase 2 update:** the task list moved off `Scheduler` and onto `Pet` (`pet.tasks`), with `Owner.get_all_tasks()` flattening tasks across all pets and `Scheduler` reading from there instead of keeping its own copy. This avoids two sources of truth for the same tasks and matches how the assignment expects `Pet` to store tasks directly. I also added `Task.is_complete` and `mark_complete()` since Phase 2 required tracking completion status.
+Yes, a few things changed. I switched task priority from plain text (like "high") to a proper `Priority` type, and switched task times from text like "08:00" to numbers (minutes since midnight). This made comparing times and sorting much easier and less error-prone. I also moved the task list so it lives on each `Pet` instead of on the `Scheduler`, so there's only one place tasks are stored instead of two lists that could get out of sync.
 
 ---
 
@@ -23,35 +21,35 @@ Yes. I switched `Task.priority` from a free-form string to a `Priority` IntEnum 
 
 **a. Constraints and priorities**
 
-The scheduler considers three things: available time (`build_daily_schedule`'s `available_minutes` budget), priority (`sort_tasks` puts HIGH-priority tasks first), and time-window conflicts (`detect_conflicts`/`conflicts_with` prevent two overlapping tasks from both landing in the same schedule). I decided time and priority mattered most because those map directly to what a real pet owner cares about first: "can I actually fit this in today" and "what absolutely has to happen." Preferences (like a pet's favorite time of day) weren't built in yet — that's a reasonable next step but wasn't essential for a working v1.
+The scheduler looks at three things: how much time is available, how important each task is, and whether two tasks overlap in time. Time and priority mattered most because they answer the two questions a pet owner actually has: "can I fit this in today" and "what has to happen no matter what."
 
 **b. Tradeoffs**
 
-One clear tradeoff: `conflicts_with()` only checks for overlapping time *windows* (start/end minute ranges), not softer scheduling preferences like "don't do two high-energy activities back to back" or minimum gaps between tasks. That's reasonable for this scenario because exact time overlap is an unambiguous, checkable fact (two things literally can't happen at once), while "should there be a buffer between tasks" is a judgment call that varies by owner and pet — building that in now would mean guessing at a rule instead of letting the actual user express a preference later.
+The scheduler only checks for exact time overlaps, it doesn't worry about things like leaving a gap between tasks. That's fine for now because "do two times overlap" is a clear yes/no question, while "should there be a break in between" is more of a personal preference I didn't build in yet.
 
 ---
 
 ## 3. AI Collaboration
 
-**a. How you used AI**
+**a. How I used AI**
 
-I used AI throughout, but for different jobs at each phase: brainstorming the initial class breakdown in Phase 1, scaffolding empty method stubs before I wrote real logic, generating the full method bodies in Phase 2, drafting test cases in Phase 5, and debugging environment issues (a broken venv built from an MSYS2 Python install that couldn't verify SSL certificates when installing packages, which took recreating the venv with the official python.org interpreter to fix). The most helpful prompts were narrow and code-specific — pointing at a specific file and method name and asking "does this match what Phase X requires" rather than open-ended "make this better" requests. Asking it to run and actually execute the demo script before handing anything back also mattered more than any single prompt wording — seeing real terminal output caught issues that just reading the code wouldn't have. Keeping planning/testing conversations separate from implementation ones also helped: when a chat's whole context is "what should I test," the suggestions stay focused on test design instead of drifting back into rewriting the feature itself.
+I used AI to help plan the classes, write the code, write tests, and fix errors (like a broken Python setup on my computer). The most helpful thing was asking specific questions about one file or method at a time, instead of vague ones like "make this better."
 
 **b. Judgment and verification**
 
-The clearest moment: partway through, the assignment's Phase 2 spec described `Pet` storing its own task list and `Owner` exposing tasks across pets, but my Phase 1 design had put the task list on `Scheduler` instead. Rather than quietly picking one, the AI flagged the mismatch, explained why the Pet-owns-tasks version matched the assignment better (single source of truth, no duplicate task lists to keep in sync), and only made the change after calling it out. I verified it by checking that `Owner.get_all_tasks()` still gave `Scheduler` everything it needed and that no code accidentally still assumed a `Scheduler.tasks` list existed. I also independently re-ran the test suite and CLI demo after that change rather than trusting the explanation alone.
+At one point, my task list was stored in the `Scheduler` class, but the assignment expected it to live on the `Pet` class instead. Rather than just changing it quietly, the mismatch was pointed out to me first, explained why the `Pet` version made more sense, and then updated. I double-checked it myself by re-running my tests and demo script afterward to make sure nothing broke.
 
 ---
 
 ## 4. Testing and Verification
 
-**a. What you tested**
+**a. What I tested**
 
-The suite covers task completion status, pet task counts, sorting by time (including an all-unscheduled edge case and an empty list), conflict detection (overlapping tasks, back-to-back tasks that should *not* count as conflicts, and zero-task cases), recurrence (daily advances by 1 day, weekly by 7, non-recurring tasks create no follow-up), filtering by pet and by status, and rejecting a task for a pet the owner doesn't have. These mattered because they're exactly the places a scheduler quietly breaks: off-by-one errors in time math, forgetting that "ends exactly when the next starts" isn't an overlap, and recurring tasks either not advancing or advancing by the wrong amount.
+I tested that tasks sort correctly by time, that overlapping tasks get flagged as conflicts (but back-to-back tasks don't), that recurring tasks create a new copy for the next day or week, and that filtering by pet or status works. These are the spots where a scheduler is most likely to have a hidden bug.
 
 **b. Confidence**
 
-I'd put this at 4/5. The core logic is well-tested including boundary cases, and I ran everything myself rather than just trusting green checkmarks reported back to me. What I haven't tested yet: `build_daily_schedule` when a single task's duration exceeds the whole time budget, and conflict behavior across three or more overlapping tasks instead of just pairs. Those would be next if I had more time.
+I'd say I'm fairly confident. Most of the important cases are tested and I ran everything myself to check. If I had more time, I'd test what happens if a single task is longer than the whole time budget, or if three or more tasks overlap at once instead of just two.
 
 ---
 
@@ -59,12 +57,12 @@ I'd put this at 4/5. The core logic is well-tested including boundary cases, and
 
 **a. What went well**
 
-The architecture holding up across phases without a rewrite — Owner/Pet/Task/Scheduler from Phase 1 is still the same core shape in Phase 6, just with more methods added. That came from treating the UML diagram as a living document I kept updating instead of a one-time drawing.
+The class design from the very beginning held up the whole way through. I didn't have to rebuild it from scratch, just add more to it.
 
-**b. What you would improve**
+**b. What I would improve**
 
-I'd build the recurring-task date logic (`due_date`, `next_occurrence_date`) in from Phase 1 instead of bolting it on in Phase 4. The original design used `day_of_week` as an anchor with no actual calendar date, which worked fine until recurrence needed real `timedelta` math — I ended up adding a parallel `due_date` field rather than redesigning the whole recurrence model, which is a bit more patched-together than a version built with dates from the start.
+I'd add real calendar dates to tasks from the start, instead of adding them later just for the recurring-task feature. It works now, but it would've been cleaner built in from day one.
 
 **c. Key takeaway**
 
-Being the "lead architect" meant I had to keep deciding what the AI's output actually meant for *my* system, not just whether the code ran. The AI could generate correct-looking code for either the Phase 1 or Phase 2 task-storage design, but only I could catch that having tasks live in two places (`Scheduler.tasks` and eventually `Pet.tasks`) would create a bug where they drift out of sync. AI is fast at producing plausible code; the human's job is deciding which plausible version is actually the right one for the system as a whole.
+AI can write working code fast, but it can't always tell which version of a design is actually the right one for the bigger picture, that part is still on me to decide and check.
