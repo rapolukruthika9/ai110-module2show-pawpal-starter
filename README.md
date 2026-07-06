@@ -86,16 +86,40 @@ pytest
 pytest --cov
 ```
 
+**What's covered:**
+- **Basic behaviors** — marking a task complete, adding a task increases a pet's task count, a fresh pet starts with zero tasks
+- **Sorting correctness** — `sort_by_time()` returns tasks in chronological order, unscheduled tasks sort last, an empty task list doesn't error
+- **Conflict detection** — overlapping same-time tasks are flagged (both the raw pairs and the human-readable warning strings), back-to-back tasks (one ending exactly when the next starts) are correctly treated as *not* conflicting, and zero tasks produces zero conflicts
+- **Recurrence logic** — completing a daily task creates a new occurrence due exactly 1 day later, completing a weekly task creates one due 7 days later, and completing a one-off (non-recurring) task creates no follow-up
+- **Filtering** — filtering by pet name and by completion status each return the correct subset
+- **Validation** — adding a task for a pet the owner doesn't have raises a `ValueError` instead of silently corrupting data
+
 Sample test output:
 
 ```
-collected 2 items
+collected 16 items
 
-tests/test_pawpal.py::test_mark_complete_changes_status PASSED           [ 50%]
-tests/test_pawpal.py::test_adding_task_increases_pet_task_count PASSED   [100%]
+tests/test_pawpal.py::test_mark_complete_changes_status PASSED           [  6%]
+tests/test_pawpal.py::test_adding_task_increases_pet_task_count PASSED   [ 12%]
+tests/test_pawpal.py::test_pet_with_no_tasks_has_zero_count PASSED       [ 18%]
+tests/test_pawpal.py::test_sort_by_time_returns_chronological_order PASSED [ 25%]
+tests/test_pawpal.py::test_sort_by_time_puts_unscheduled_tasks_last PASSED [ 31%]
+tests/test_pawpal.py::test_sort_by_time_on_empty_task_list_returns_empty PASSED [ 37%]
+tests/test_pawpal.py::test_detect_conflicts_flags_overlapping_same_time_tasks PASSED [ 43%]
+tests/test_pawpal.py::test_get_conflict_warnings_returns_readable_strings_not_a_crash PASSED [ 50%]
+tests/test_pawpal.py::test_back_to_back_tasks_do_not_conflict PASSED     [ 56%]
+tests/test_pawpal.py::test_no_conflicts_when_no_tasks_exist PASSED       [ 62%]
+tests/test_pawpal.py::test_completing_daily_task_creates_next_day_occurrence PASSED [ 68%]
+tests/test_pawpal.py::test_completing_weekly_task_creates_next_week_occurrence PASSED [ 75%]
+tests/test_pawpal.py::test_completing_non_recurring_task_creates_no_follow_up PASSED [ 81%]
+tests/test_pawpal.py::test_filter_tasks_by_pet_name PASSED               [ 87%]
+tests/test_pawpal.py::test_filter_tasks_by_completion_status PASSED      [ 93%]
+tests/test_pawpal.py::test_adding_task_for_unknown_pet_raises_value_error PASSED [100%]
 
-============================== 2 passed in 0.01s ===============================
+16 passed in 0.11s
 ```
+
+**Confidence Level:** ⭐⭐⭐⭐☆ (4/5) — the core scheduling logic (sorting, conflicts, recurrence, filtering) is well covered including boundary cases like back-to-back tasks and empty task lists. I'd want to add tests around `build_daily_schedule`'s time-budget behavior (e.g. a task that alone exceeds `available_minutes`) and multi-pet conflict scenarios before calling this 5/5.
 
 ## 📐 Smarter Scheduling
 
