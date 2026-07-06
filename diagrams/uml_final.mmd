@@ -5,6 +5,7 @@ classDiagram
         +list~Pet~ pets
         +add_pet(pet) None
         +get_pet_by_name(name) Pet
+        +get_all_tasks() list~Task~
     }
 
     class Pet {
@@ -12,6 +13,9 @@ classDiagram
         +str species
         +str breed
         +int age
+        +list~Task~ tasks
+        +add_task(task) None
+        +task_count() int
     }
 
     class Priority {
@@ -30,23 +34,32 @@ classDiagram
         +bool is_recurring
         +str frequency
         +int day_of_week
+        +date due_date
+        +bool is_complete
         +end_time() int
         +conflicts_with(other) bool
         +is_high_priority() bool
+        +mark_complete() None
+        +next_occurrence_date() date
     }
 
     class Scheduler {
         +Owner owner
-        +list~Task~ tasks
         +add_task(task) None
         +sort_tasks() list~Task~
+        +sort_by_time() list~Task~
+        +filter_tasks(pet_name, is_complete) list~Task~
         +detect_conflicts() list~tuple~
+        +get_conflict_warnings() list~str~
         +build_daily_schedule(available_minutes) list~Task~
-        +expand_recurring() list~Task~
+        +expand_recurring(day_of_week) list~Task~
+        +mark_task_complete(task) Task
     }
 
     Owner "1" --> "many" Pet : has
     Owner "1" --> "1" Scheduler : uses
-    Scheduler "1" --> "many" Task : manages
+    Pet "1" --> "many" Task : has
+    Scheduler ..> Owner : reads tasks via get_all_tasks()
+    Scheduler ..> Task : creates next occurrence via mark_task_complete()
     Task "many" --> "1" Pet : assigned to (by pet_name, validated on add_task)
     Task ..> Priority : uses
